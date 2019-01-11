@@ -7,6 +7,9 @@ import cv2
 import imutils
 import time
 import threading
+# import context  # Ensures paho is in PYTHONPATH
+import paho.mqtt.client as mqtt
+import paho.mqtt.publish as publish
 
 
 # construct the argument parse and parse the arguments
@@ -18,11 +21,15 @@ args = ap.parse_args()
 # define the lower and upper boundaries of the "green"
 # ball in the HSV color space, then initialize the
 # list of tracked points
-greenLower = (126, 110, 107)
-greenUpper = (183, 201, 255)
+greenLower = (21, 75, 61)
+greenUpper = (70, 255, 213)
 # used for tracked points
 # pts = deque(maxlen=args["buffer"])
 
+broker_address="192.168.1.206" 
+#broker_address="iot.eclipse.org" #use external broker
+client = mqtt.Client("P1") #create new instance
+client.connect(broker_address) #connect to broker
 
 
 
@@ -72,6 +79,7 @@ def track_obj(cam):
             ((x, y), radius) = cv2.minEnclosingCircle(c)
             M = cv2.moments(c)
             center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+            client.publish("test",str(center))#publish
             print(center)
             # only proceed if the radius meets a minimum size
             if radius > 10:
@@ -101,7 +109,7 @@ def track_obj(cam):
         # show the frame to our screen
         # cv2.imshow("Mask"+str(cam), mask)
 
-        # cv2.imshow("Frame"+str(cam), frame)
+        cv2.imshow("Frame"+str(cam), frame)
         key = cv2.waitKey(1) & 0xFF
 
         # if the 'q' key is pressed, stop the loop
@@ -131,7 +139,6 @@ def track_obj(cam):
 # if args.cameras is not None:
 # 	for x in threads:
 # 		x.join()
-
 
 
 t1 = threading.Thread(target=track_obj, args=(0,))
