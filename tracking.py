@@ -21,8 +21,8 @@ args = ap.parse_args()
 # define the lower and upper boundaries of the "green"
 # ball in the HSV color space, then initialize the
 # list of tracked points
-greenLower = (21, 75, 61)
-greenUpper = (70, 255, 213)
+greenLower = (24, 33, 166)
+greenUpper = (45, 131, 255)
 # used for tracked points
 # pts = deque(maxlen=args["buffer"])
 
@@ -39,11 +39,12 @@ def track_obj(cam):
 
     # allow the camera or video file to warm up
     time.sleep(2.0)
-
+    areaArray = []
     # keep looping
     while True:
         # grab the current frame
         frame = vs.read()
+        frame = cv2.flip(frame,1)
 
         # if we are viewing a video and we did not grab a frame,
         # then we have reached the end of the video
@@ -69,25 +70,68 @@ def track_obj(cam):
                                 cv2.CHAIN_APPROX_SIMPLE)
         cnts = imutils.grab_contours(cnts)
         center = None
-
+        for c in cnts:
+            area = cv2.contourArea(c)
+            areaArray.append(area)
         # only proceed if at least one contour was found
-        if len(cnts) > 0:
+        if len(areaArray) > 0:
+            sorteddata = sorted(zip(areaArray, cnts), key=lambda x: x[0], reverse=True)
             # find the largest contour in the mask, then use
             # it to compute the minimum enclosing circle and
             # centroid
-            c = max(cnts, key=cv2.contourArea)
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-            client.publish("test",str(center))#publish
-            print(center)
-            # only proceed if the radius meets a minimum size
-            if radius > 10:
-                # draw the circle and centroid on the frame,
-                # then update the list of tracked points
-                # cv2.circle(frame, (int(x), int(y)), int(radius),
-                # 	(0, 255, 255), 2)
-                cv2.circle(frame, center, 5, (0, 0, 255), -1)
+            # c = max(cnts, key=cv2.contourArea)
+            centers = []
+            if areaArray and len(areaArray) >= 2:
+                for i in sorteddata:
+                    c = i[1]
+                    ((x, y), radius) = cv2.minEnclosingCircle(c)
+                    M = cv2.moments(c)
+                    # print(M)
+                    center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+                    centers.append(center)
+                    if radius > 10:
+                    # draw the circle and centroid on the frame,
+                    # then update the list of tracked points
+                    # cv2.circle(frame, (int(x), int(y)), int(radius),
+                    # 	(0, 255, 255), 2)
+                        cv2.circle(frame, center, 5, (0, 0, 255), -1)
+                        rect = cv2.minAreaRect(c)
+                        box = cv2.boxPoints(rect)
+                        box = np.int0(box)
+                        cv2.drawContours(frame,[box],0,(0,0,255),2)
+
+                centerX, centerY = 0,0
+                for center in centers:
+                    centerX += center[0]
+                    centerY += center[1]
+                absCenter = (int(centerX / (len(centers) if len(centers)>0 else 1)), int(centerY / (len(centers) if len(centers)>0 else 1)))
+                cv2.circle(frame, absCenter, 5, (0, 255, 0), -1)
+
+                # c1 = sorteddata[0][1]
+                # ((x1, y1), radius1) = cv2.minEnclosingCircle(c1)
+                # M1 = cv2.moments(c1)
+                # # print(M)
+                # center1 = (int(M1["m10"] / M1["m00"]), int(M1["m01"] / M1["m00"]))
+                # c2 = sorteddata[1][1]
+                # ((x2, y2), radius2) = cv2.minEnclosingCircle(c2)
+                # M2 = cv2.moments(c2)
+                # # print(M)
+                # center2 = (int(M2["m10"] / M2["m00"]), int(M2["m01"] / M2["m00"]))
+                # # client.publish("test",str(center))#publish
+                # # print(center)
+                # # only proceed if the radius meets a minimum size
+                # if radius1 > 10:
+                #     # draw the circle and centroid on the frame,
+                #     # then update the list of tracked points
+                #     # cv2.circle(frame, (int(x), int(y)), int(radius),
+                #     # 	(0, 255, 255), 2)
+                #     cv2.circle(frame, center1, 5, (0, 0, 255), -1)
+                # if radius2 > 10:
+                #     # draw the circle and centroid on the frame,
+                #     # then update the list of tracked points
+                #     # cv2.circle(frame, (int(x), int(y)), int(radius),
+                #     # 	(0, 255, 255), 2)
+                #     cv2.circle(frame, center2, 5, (0, 0, 255), -1)
         # cv2.circle(frame, (600,450), 5, (0, 255, 0), -1)
 
 
