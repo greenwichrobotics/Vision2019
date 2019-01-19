@@ -21,16 +21,17 @@ args = ap.parse_args()
 # define the lower and upper boundaries of the "green"
 # ball in the HSV color space, then initialize the
 # list of tracked points
-greenLower = (24, 33, 166)
-greenUpper = (45, 131, 255)
+greenLower = (79, 119, 215)
+greenUpper = (255, 190, 255)
 # used for tracked points
 # pts = deque(maxlen=args["buffer"])
 
-broker_address="192.168.1.206" 
+broker_address="172.17.0.1" # default docekr host ip is this
 #broker_address="iot.eclipse.org" #use external broker
 client = mqtt.Client("P1") #create new instance
 client.connect(broker_address) #connect to broker
-
+print("Send String to broker")
+client.publish("test", "Hello from The Rock") # topic, message
 
 
 def track_obj(cam):
@@ -44,7 +45,7 @@ def track_obj(cam):
     while True:
         # grab the current frame
         frame = vs.read()
-        frame = cv2.flip(frame,1)
+        frame = cv2.flip(frame,1)  # so its not backwards
 
         # if we are viewing a video and we did not grab a frame,
         # then we have reached the end of the video
@@ -53,8 +54,8 @@ def track_obj(cam):
 
         # resize the frame, blur it, and convert it to the HSV
         # color space
-        frame = imutils.resize(frame, width=600)
-        blurred = cv2.GaussianBlur(frame, (11, 11), 0)
+        frame = imutils.resize(frame, width=600) # 600 x 450
+        blurred = cv2.GaussianBlur(frame, (11, 11), 0) # for tracking colors
         hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
         # construct a mask for the color "green", then perform
@@ -68,14 +69,14 @@ def track_obj(cam):
         # (x, y) center of the ball
         cnts = cv2.findContours(mask.copy(), cv2.RETR_EXTERNAL,
                                 cv2.CHAIN_APPROX_SIMPLE)
-        cnts = imutils.grab_contours(cnts)
+        cnts = imutils.grab_contours(cnts) ## filters out all but contours
         center = None
         for c in cnts:
             area = cv2.contourArea(c)
             areaArray.append(area)
         # only proceed if at least one contour was found
         if len(areaArray) > 0:
-            sorteddata = sorted(zip(areaArray, cnts), key=lambda x: x[0], reverse=True)
+            sorteddata = sorted(zip(areaArray, cnts), key=lambda x: x[0], reverse=True) # largest array down
             # find the largest contour in the mask, then use
             # it to compute the minimum enclosing circle and
             # centroid
@@ -106,7 +107,7 @@ def track_obj(cam):
                     centerY += center[1]
                 absCenter = (int(centerX / (len(centers) if len(centers)>0 else 1)), int(centerY / (len(centers) if len(centers)>0 else 1)))
                 cv2.circle(frame, absCenter, 5, (0, 255, 0), -1)
-
+                client.publish("test", str(absCenter)) #publish
                 # c1 = sorteddata[0][1]
                 # ((x1, y1), radius1) = cv2.minEnclosingCircle(c1)
                 # M1 = cv2.moments(c1)
@@ -153,7 +154,7 @@ def track_obj(cam):
         # show the frame to our screen
         # cv2.imshow("Mask"+str(cam), mask)
 
-        cv2.imshow("Frame"+str(cam), frame)
+#        cv2.imshow("Frame"+str(cam), frame)
         key = cv2.waitKey(1) & 0xFF
 
         # if the 'q' key is pressed, stop the loop
@@ -185,10 +186,10 @@ def track_obj(cam):
 # 		x.join()
 
 
-t1 = threading.Thread(target=track_obj, args=(0,))
+t1 = threading.Thread(target=track_obj, args=(0,)) # 0 here means /dev/video0
 # t2 = threading.Thread(target=track_obj, args=(2,))
 t1.start()
 # t2.start()
 
-t1.join()
+t1.join() # join means that when all threads have exited, the program can exit
 # t2.join()
